@@ -1,0 +1,229 @@
+ /**
+ *  Yagusmart Tuya ZigBee Smart Light Switch
+ */
+
+import groovy.json.JsonOutput
+import physicalgraph.zigbee.zcl.DataType
+
+metadata {
+    definition (name: "Yagusmart Switch", namespace: "smartthings", author: "Darren Blanchard", runLocally: true, minHubCoreVersion: "000.022.0002", executeCommandsLocally: false, ocfDeviceType: "x.com.st.d.remotecontroller") {
+        capability "Actuator"
+        capability "Battery"
+        capability "Button"
+        capability "Holdable Button"        
+        capability "Configuration"
+        capability "Refresh"
+        capability "Sensor"
+        capability "Health Check"
+
+        command "enrollResponse"
+
+        // Not tested the list below
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0006", outClusters: "0019", manufacturer: "_TZ3400_keyjqthh", model:"TS0041", deviceJoinName: "Yagusmart ZigBee Button" // 1 gang button
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0006", outClusters: "0019", manufacturer: "_TZ3400_keyjhapk", model:"TS0042", deviceJoinName: "Yagusmart ZigBee Button" // 2 gang button
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0006", outClusters: "0019", manufacturer: "_TZ3400_keyjhapl", model:"TS0043", deviceJoinName: "Yagusmart ZigBee Button" // 3 gang button
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0006", outClusters: "0019", manufacturer: "_TZ3400_keyjhapm", model:"TS0044", deviceJoinName: "Yagusmart ZigBee Button" // 4 gang button
+        
+        // Yagusmart Tuya ZigBee Smart Light Switch - https://www.aliexpress.com/item/1005002116676502.html?ug_edm_item_id=1005002116676502&edm_click_module=item_detail&tracelog=rowan&rowan_id1=user_add_cart_remind_1_1_en_US_2021-02-10&rowan_msg_id=2138null_1084595$15080cb46ebe413cac97322b7da85f7d&ck=in_edm_other
+        
+        //Raw Description	       01 0104 0000 01 03 0000 0001 0006 02 0019 000A
+        //fingerprint profileId: "0104", inClusters: "0001, 0006", outClusters: "0019", manufacturer: "_TZ3400_keyjhaph", model:"TS0042", deviceJoinName: "Yagusmart Tuya ZigBee - Battery Switch" // 4 gang button
+        //[raw:0104 0006 01 01 0000 00 4038 01 00 0000 FD 00 00, profileId:0104, clusterId:0006, sourceEndpoint:01, destinationEndpoint:01, options:0000, messageType:00, dni:4038, isClusterSpecific:true, isManufacturerSpecific:false, manufacturerId:0000, command:FD, direction:00, data:[00], clusterInt:6, commandInt:253]
+        //[raw:0104 0006 01 01 0000 00 4038 01 00 0000 FD 00 01, profileId:0104, clusterId:0006, sourceEndpoint:01, destinationEndpoint:01, options:0000, messageType:00, dni:4038, isClusterSpecific:true, isManufacturerSpecific:false, manufacturerId:0000, command:FD, direction:00, data:[01], clusterInt:6, commandInt:253]
+    }
+
+    simulator {}
+
+    preferences {
+        section {
+        	// From what I can tell this doesn't have any effect
+            input ("holdTime", "number", title: "Minimum time in seconds for a press to count as \"held\"", defaultValue: 1, displayDuringSetup: false)
+        }
+    }
+
+    tiles {
+        standardTile("button", "device.button", width: 2, height: 2, canChangeIcon: true) {
+            //state "default", label: "", icon: "st.unknown.zwave.remote-controller", backgroundColor: "#ffffff"
+            state "default", label: "", icon: "st.unknown.button", backgroundColor: "#ffffff"
+            state "Pressed", label: "", icon: "st.unknown.zwave.remote-controller", backgroundColor: "#3443eb"
+            state "Double pressed", label: "", icon: "st.unknown.zwave.remote-controller", backgroundColor: "#34ebe2"
+            state "Held", label: "", icon: "st.unknown.zwave.remote-controller", backgroundColor: "#34ebe2"
+        }
+
+        valueTile("battery", "device.battery", decoration: "flat", inactiveLabel: false) {
+            state "battery", label:'${currentValue}% battery', unit:""
+        }
+
+        standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat") {
+            state "default", action:"refresh.refresh", icon:"st.secondary.refresh"
+        }
+        main (["button"])
+        details(["button", "battery", "refresh"])
+    }
+}
+
+def parse(String description) {
+    def buttonState = ""
+    def buttonNumber = 1 // Assume the default button is 1
+    
+    //log.debug "description is $description"
+    log.debug zigbee.parseDescriptionAsMap(description)
+    
+    def event = zigbee.getEvent(description)
+    
+    Map eventDescMap = zigbee.parseDescriptionAsMap(description)
+    
+    if (event) {
+        sendEvent(event)
+    }
+    else {
+  
+        if (description?.startsWith("catchall:")) {
+            def descMap = zigbee.parseDescriptionAsMap(description)
+            if (descMap.clusterInt == 0x0001 && descMap.attrInt == 0x0020 && descMap.value != null) {
+            	// I don't htink this evcer gets called
+                event = getBatteryResult(zigbee.convertHexToInt(descMap.value))
+            }
+            else if (descMap.clusterInt == 0x0006) {
+
+                if (descMap.command == "FD") { 
+                    buttonNumber = descMap.sourceEndpoint // get the button pressed
+                    if (descMap.data[0] == "00") { buttonState = "pushed" } 
+                    else if(descMap.data[0] == "01") { buttonState = "double" } 
+                    else if (descMap.data[0] == "02") { buttonState = "held"   }
+                }
+
+				def descriptionText = "$device.displayName button $buttonNumber was $buttonState"
+
+				if (eventDescMap?.sourceEndpoint == "01") {
+            		event = createEvent(name: "button", value: buttonState, data: [buttonNumber: buttonNumber], descriptionText: descriptionText, isStateChange: true)
+                } else {
+                    def childDevice = childDevices.find {
+                        it.deviceNetworkId == "$device.deviceNetworkId:${eventDescMap.sourceEndpoint}" || it.deviceNetworkId == "$device.deviceNetworkId:${eventDescMap.endpoint}"
+                    }
+                    if (childDevice) {
+                        childDevice.sendEvent(name: "button", value: buttonState, data: [buttonNumber: buttonNumber], descriptionText: descriptionText, isStateChange: true)
+                    } else {
+                        log.debug "Child device: $device.deviceNetworkId:${eventDescMap.sourceEndpoint} was not found"
+                    }
+                }
+            }
+        }
+
+        def result = event ? createEvent(event) : []
+
+        if (description?.startsWith('enroll request')) {
+        	// I don't think this ever gets called??
+            log.debug "Enroll Request $event"
+            List cmds = zigbee.enrollResponse()
+            result = cmds?.collect { new physicalgraph.device.HubAction(it) }
+        }
+        
+        log.debug "Parse returned $event"
+        return result
+    }
+}
+
+def refresh() {
+    log.debug "Refreshing Battery"
+    zigbee.readAttribute(zigbee.POWER_CONFIGURATION_CLUSTER, 0x20) + zigbee.enrollResponse()
+}
+
+def configure() { // this is called when a device is added - need to think about the child devices 
+    log.debug "Configuring Reporting, IAS CIE, and Bindings."
+    def cmds = []
+    return zigbee.onOffConfig() +
+            zigbee.levelConfig() +
+            zigbee.configureReporting(zigbee.POWER_CONFIGURATION_CLUSTER, 0x20, DataType.UINT8, 30, 21600, 0x01) +
+            zigbee.enrollResponse() +
+            zigbee.readAttribute(zigbee.POWER_CONFIGURATION_CLUSTER, 0x20) +
+            cmds
+}
+
+def installed() { // called when initially added?
+	log.debug "installed()"
+    //initialize()
+    
+    // Initialize default states
+    sendEvent(name: "supportedButtonValues", value: ["pushed", "held", "double" ].encodeAsJSON(), displayed: false)
+	sendEvent(name: "numberOfButtons", value: 1, displayed: false)
+	sendEvent(name: "button", value: "standby", data: [buttonNumber: 1], displayed: false) // just to populate attribute?
+
+	createChildDevices()
+    //updateDataValue("onOff", "catchall")
+	//refresh()
+}
+
+def updated() { // called when changed?
+    log.debug "updated()"
+	//initialize()
+	//updateDataValue("onOff", "catchall")
+
+	for (child in childDevices) {
+		if (!child.deviceNetworkId.startsWith(device.deviceNetworkId) || //parent DNI has changed after rejoin
+				!child.deviceNetworkId.split(':')[-1].startsWith('0')) {
+			child.setDeviceNetworkId("${device.deviceNetworkId}:0${getChildEndpoint(child.deviceNetworkId)}")
+		}
+	}
+	//refresh()
+}
+
+def initialize() { // called when ??????
+	log.debug "initalize()"
+    // Arrival sensors only goes OFFLINE when Hub is off
+
+    sendEvent(name: "DeviceWatch-Enroll", value: JsonOutput.toJson([protocol: "zigbee", scheme:"untracked"]), displayed: false)
+    sendEvent(name: "supportedButtonValues", value: ["pushed", "held", "double" ].encodeAsJSON(), displayed: false)
+	sendEvent(name: "numberOfButtons", value: 1, displayed: false)  
+	sendEvent(name: "button", value: "standby", data: [buttonNumber: 1], displayed: false) // just to populate attribute?
+}
+
+private getChildCount() {
+	if (device.getDataValue("model") == "TS0041") {
+		return 0 // No additonal buttons
+    } else if (device.getDataValue("model") == "TS0042") {
+		return 2 // 2 Buttons on total
+    } else if (device.getDataValue("model") == "TS0043") {
+		return 3 // 3 Buttons on total
+    } else if (device.getDataValue("model") == "TS0044") {
+		return 4 // 4 Buttons on total
+	} else {
+		return 2
+	}
+}
+
+private void createChildDevices() {
+	if (!childDevices) {
+		def x = getChildCount()
+		for (i in 2..x) {
+            addChildDevice("Child Button", "${device.deviceNetworkId}:0${i}", device.hubId, [completedSetup: true, label: "${device.displayName[0..-2]}${i}", isComponent: false])
+		}
+	}
+}
+
+private getChildEndpoint(String dni) {
+	dni.split(":")[-1] as Integer
+}
+
+// Funcitons that never get called......
+
+private Map getBatteryResult(rawValue) {
+    log.debug 'Battery'
+    def volts = rawValue / 10
+    if (volts > 3.0 || volts == 0 || rawValue == 0xFF) {
+        return [:]
+    }
+    else {
+        def result = [
+                name: 'battery'
+        ]
+        def minVolts = 2.1
+        def maxVolts = 3.0
+        def pct = (volts - minVolts) / (maxVolts - minVolts)
+        result.value = Math.min(100, (int)(pct * 100))
+        def linkText = getLinkText(device)
+        result.descriptionText = "${linkText} battery was ${result.value}%"
+        sendEvent(name: "battery", value: 80, displayed: false)
+        return result
+    }
+}
