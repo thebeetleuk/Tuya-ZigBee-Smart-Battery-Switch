@@ -15,7 +15,7 @@ Feartures
 Known Issues as of 25/3/2021
 -------------------------------------------
 
-- The in app icosn for a switch with more than 1 gang are different.
+- The in app icon (Only tested on iOS) representing a switch with more than 1 gang are different.
 - Not currently tested for a switch for 3 or 4 buttons (I didnt have these at the time of testing so let me know if anyone confirms this as working)
 - Battery funciton not working (I'm not sure this device provides this status)
 - Configuraiton of the time to recognise a "Held" button event doesn't work. (The device doesn't appear to report the time held.)
