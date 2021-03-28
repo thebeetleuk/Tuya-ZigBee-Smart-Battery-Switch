@@ -1,6 +1,8 @@
 # Yagusmart-Tuya-ZigBee-Smart-Light-Switch
 Home Assistant device handler for the Yagusmart Tuya ZigBee Smart Light Switch
 
+https://www.aliexpress.com/i/4001217084809.html
+
 1. Add this as a new device handler via the web interface https://account.smartthings.com
 2. Use the smarthings app to search for a newrby thing. 
 3. The device handler should automatically identify the switch and add it to your app.
