@@ -1,5 +1,6 @@
  /**
  *  Tuya ZigBee Smart Battery Switch Wire Free 1/2/3 Gangs
+ *  Can be found here: https://www.aliexpress.com/i/4001217084809.html
  */
 
 import groovy.json.JsonOutput
