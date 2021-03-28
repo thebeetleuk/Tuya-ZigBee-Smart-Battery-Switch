@@ -1,12 +1,12 @@
  /**
- *  Yagusmart Tuya ZigBee Smart Light Switch
+ *  Tuya ZigBee Smart Battery Switch Wire Free 1/2/3 Gangs
  */
 
 import groovy.json.JsonOutput
 import physicalgraph.zigbee.zcl.DataType
 
 metadata {
-    definition (name: "Yagusmart Switch", namespace: "smartthings", author: "Darren Blanchard", runLocally: true, minHubCoreVersion: "000.022.0002", executeCommandsLocally: false, ocfDeviceType: "x.com.st.d.remotecontroller") {
+    definition (name: "Tuya Battery Switch", namespace: "smartthings", author: "Darren Blanchard", runLocally: true, minHubCoreVersion: "000.022.0002", executeCommandsLocally: false, ocfDeviceType: "x.com.st.d.remotecontroller") {
         capability "Actuator"
         capability "Battery"
         capability "Button"
@@ -24,7 +24,7 @@ metadata {
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0006", outClusters: "0019", manufacturer: "_TZ3400_keyjhapl", model:"TS0043", deviceJoinName: "Yagusmart ZigBee Button" // 3 gang button
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0006", outClusters: "0019", manufacturer: "_TZ3400_keyjhapm", model:"TS0044", deviceJoinName: "Yagusmart ZigBee Button" // 4 gang button
         
-        // Yagusmart Tuya ZigBee Smart Light Switch - https://www.aliexpress.com/item/1005002116676502.html?ug_edm_item_id=1005002116676502&edm_click_module=item_detail&tracelog=rowan&rowan_id1=user_add_cart_remind_1_1_en_US_2021-02-10&rowan_msg_id=2138null_1084595$15080cb46ebe413cac97322b7da85f7d&ck=in_edm_other
+        // Tuya ZigBee Smart Battery Switch Wire Free 1/2/3 Gangs - Tuya ZigBee Smart Battery Switch Wire Free 1/2/3 Gangs
         
         //Raw Description	       01 0104 0000 01 03 0000 0001 0006 02 0019 000A
         //fingerprint profileId: "0104", inClusters: "0001, 0006", outClusters: "0019", manufacturer: "_TZ3400_keyjhaph", model:"TS0042", deviceJoinName: "Yagusmart Tuya ZigBee - Battery Switch" // 4 gang button
